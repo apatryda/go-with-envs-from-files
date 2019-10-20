@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
 )
 
@@ -47,6 +48,12 @@ func buildEnvs(envMap map[string]string) []string {
 	return envs
 }
 
+func pipeSignals(cmd *exec.Cmd, c chan os.Signal) {
+	for sig := range c {
+		cmd.Process.Signal(sig)
+	}
+}
+
 func main() {
 	fileEnvMap := getFileEnvMap()
 	log.Println(fileEnvMap)
@@ -56,6 +63,11 @@ func main() {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+
+	c := make(chan os.Signal, 1)
+	defer close(c)
+	signal.Notify(c)
+	go pipeSignals(cmd, c)
 
 	if err := cmd.Run(); err != nil {
 		log.Fatal(err)
